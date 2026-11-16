@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Suchis Autoload Inspector
  * Description: Analyse und vorsichtige Verwaltung automatisch geladener WordPress-Optionen.
- * Version: 0.1.0
- * Requires at least: 6.4
+ * Version: 0.2.0
+ * Requires at least: 6.6
  * Requires PHP: 7.4
  * Author: Christian Suchanek
  * License: GPL-2.0-or-later

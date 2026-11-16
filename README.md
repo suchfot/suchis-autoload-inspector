@@ -1,67 +1,105 @@
 # Suchis Autoload Inspector
 
-WordPress-Adminwerkzeug zur Diagnose automatisch geladener Optionen (`wp_options`). **Entwicklungsstand: 0.1.0 / Testversion – zuerst lokal oder auf Staging verwenden.**
+Lokales WordPress-Adminwerkzeug unter **Werkzeuge → Autoload Inspector**.
+**Version 0.2.0 – Testversion, vor Produktiveinsatz auf Staging prüfen.**
+Voraussetzungen: WordPress 6.6+, PHP 7.4+, `manage_options`. Multisite ist noch nicht vollständig unterstützt.
 
-## Ziel und Bedienung
+## Funktionen
 
-Unter **Werkzeuge → Autoload Inspector** werden Anzahl und Gesamtgröße automatisch geladener Optionen, die größten Einträge, ihre Autoload-Werte und eine *heuristische* Gruppierung nach Optionsnamen angezeigt. Suche und Sortierung helfen beim Eingrenzen. Ein aufklappbarer Warnhinweis erklärt Risiken und empfiehlt zuerst die Bereinigung nicht mehr verwendeter Plugins und Themes (ein Standardtheme als Reserve behalten).
+- Alle Options-Metadaten anzeigen; standardmäßig nur automatisch geladene Optionen.
+- Herkunft: WordPress-Core, Plugin, Theme oder Unbekannt. Anbieter, Aktivitätsstatus und Grundlage der Zuordnung stehen separat in der Tabelle.
+- Kombinierbare Filter nach Herkunft, Anbieter, Status, Autoload und Mindestgröße in Bytes.
+- Suche über Optionsnamen, Herkunft, Anbieter, Status, Zuordnungshinweise, Autoload-Rohwert und Bytezahl. Mehrere Suchwörter sind UND-verknüpft.
+- Native Browser-Autocomplete-Vorschläge für Optionsnamen und Anbieter aus dem gesamten Bestand, unabhängig von der aktuellen Seite. Auswahl eines Vorschlags setzt Suchtext; ein exakter Anbieterfilter ist separat verfügbar.
+- Keine Suche in Optionswerten und keine Ausgabe von Optionswerten im HTML.
+- Gesamt-Autoloadgröße, Trefferanzahl, gefilterte Größe und aufklappbare Gruppensummen mit Anteilen an der aktuellen Auswahl.
+- Sortierung nach Größe oder Name, 50 Einträge je Seite, kompakte Navigation.
+- Autoload einzeln an-/ausschalten; erkannte Core-Optionen und eigene Protokolloptionen sind geschützt.
+- Letzte Änderung rückgängig machen, sofern der Autoload-Rohwert seitdem nicht verändert wurde.
+- Dauerhafter, auf die letzten 100 Änderungen begrenzter Verlauf mit Zeit, Benutzer-ID und altem/neuem Rohwert; keine Optionswerte.
+- Vollständige Optionstabelle als vertraulichen SQL-Download exportieren.
+- Keine externen Dienste, Frontend-Skripte, Cronjobs oder automatischen Löschaktionen.
 
-- Ein vollständiger SQL-Export der Optionstabelle steht als Download zur Verfügung. **Er ist vertraulich**, denn Optionswerte können Passwörter und API-Schlüssel enthalten.
-- Einzelne, nicht geschützte Autoload-Optionen können nach Bestätigung deaktiviert werden.
-- Die jeweils letzte Änderung lässt sich über „Rückgängig“ wiederherstellen; das ursprüngliche Autoload-Feld wird exakt protokolliert.
-- Das Plugin hat keinen Cronjob, keinen Frontend-Code, keine Lizenzprüfung und keinen externen Netzwerkzugriff.
-- Es wird beim Deinstallieren sein eigenes Änderungsprotokoll entfernen, **nicht** die fremden Optionen.
+## Grenzen der Herkunftserkennung
 
-**Wichtig:** Die aktuelle Oberfläche zeigt nur *automatisch geladene* Optionen; ausgeschaltete Einträge sind nur über den letzten Undo-Schritt wieder aktivierbar. Das vollständige gezielte Ein- und Ausschalten und eine dauerhafte Änderungsverlauf-Ansicht sind nächste Entwicklungsaufgaben. Diese Einschränkung ist absichtlich dokumentiert.
+WordPress speichert keinen zuverlässigen Eigentümer pro Option. Auch bekannte Präfixregeln sind **keine Eigentumsgarantie**. Ein Plugin kann gemeinsame Optionen verwenden oder Namen anderer Komponenten übernehmen.
 
-## Installation
+1. Explizite Core-Namen und `${Tabellenpräfix}user_roles` werden als Core erkannt und geschützt. Die Liste ist bewusst konservativ und **nicht vollständig**. Unbekannt bedeutet nicht ungefährlich.
+2. `theme_mods_{stylesheet}` wird mit installierten Themes abgeglichen; aktive Parent-/Child-Themes werden berücksichtigt.
+3. Kleine explizite Plugin-Präfixliste: WooCommerce, Yoast SEO, Elementor, Inspector.
+4. Abgleich installierter Plugins und MU-Plugins über Plugin-Slugs; solche Treffer werden ausdrücklich als Vermutung angezeigt.
+5. Andere Optionen bleiben unbekannt. Insbesondere beweist ein `wp_`-Präfix keine Core-Herkunft. Transients sind kein eigenständiger Eigentümer.
 
-1. Ordner `suchis-autoload-inspector` nach `wp-content/plugins/` kopieren oder das ZIP über **Plugins → Installieren → Plugin hochladen** installieren.
-2. Plugin aktivieren, als Administrator **Werkzeuge → Autoload Inspector** öffnen.
-3. Vor Änderungen **vollständiges Website-Backup** (Dateien und Datenbank) erstellen; optional zusätzlich den angebotenen Options-Export herunterladen.
-4. Optionen analysieren, einzeln ändern, Website und zeitversetzte Funktionen testen.
-5. Nach Abschluss Plugin bei Bedarf deaktivieren und löschen.
+Der Installationsstatus bezieht sich auf die zugeordnete Komponente, nicht auf die aktuelle Nutzung der Option. „Inaktiv“ oder „nicht installiert / prüfen“ ist niemals eine Löschfreigabe. Alte Optionen ohne bekannte Regel können keinem entfernten Plugin zuverlässig zugeordnet werden.
 
-**Voraussetzungen:** WordPress 6.4+, PHP 7.4+, Berechtigung `manage_options`. Datenbankpräfix wird dynamisch über `$wpdb->options` ermittelt.
+Eigene Präfixregeln können lokal über einen Filter ergänzt werden, beispielsweise in einem MU-Plugin:
 
-## Dateistruktur
+```php
+add_filter('sai_owner_rules', static function (array $rules): array {
+    $rules['mein_plugin_'] = 'mein-plugin'; // Plugin-Verzeichnisname
+    return $rules;
+});
+```
 
-- `suchis-autoload-inspector.php` – Plugin-Bootstrap und Metadaten
-- `includes/class-sai-admin.php` – Administrationsansicht, SQL-Abfrage, Export, Änderungen und Undo
-- `uninstall.php` – entfernt ausschließlich eigene Plugin-Optionen
-- `README.md` – Projektdokumentation für Entwicklung mit VS Code / GitHub Copilot
+Bei überlappenden Regeln gewinnt die erste passende Regel. Kürzel nicht zu allgemein wählen.
 
-## Datenmodell und Autoload
+## Sicherheit und Änderungen
 
-Die Datenbankspalte `autoload` kennt je nach WordPress-Version u.a. `yes`, `no`, `on`, `off`, `auto`, `auto-on`, `auto-off`. Als **automatisch geladen** gelten hier `yes`, `on`, `auto-on`, `auto`. Nicht alle Optionsnamen lassen sich eindeutig einem Plugin zuordnen. **Präfix ≠ Beweis, dass ein Plugin installiert oder entfernt ist.**
+Vor Änderungen vollständiges Backup von Dateien und Datenbank erstellen. Auf lokaler Kopie bzw. Staging testen. Eine Option kann bei ausgeschaltetem Autoload weiterhin gebraucht werden; Änderungen können zusätzliche Abfragen und verzögerte Funktionsfehler verursachen.
 
-Das Ausschalten erfolgt über die WordPress-API `wp_set_option_autoload()`; Undo stellt den ursprünglichen DB-Wert wieder her und invalidiert den `alloptions`-Cache. Änderungen nur mit `manage_options`, POST, Nonce und expliziter Bestätigung. Die Anzeige von Werten wird bewusst vermieden, weil sie Geheimnisse enthalten können.
+- Seitenaufrufe lesen nur Metadaten; keine Klassifikation wird in fremde Optionen geschrieben.
+- Änderungen/Undo benötigen Berechtigung, POST und Nonce. Einzeländerungen zusätzlich Browserbestätigung.
+- Die Datenbankänderung erfolgt bewusst als bedingtes UPDATE (**Compare-and-swap**) mit dem angezeigten Autoload-Rohwert. Bei zwischenzeitlich anderem Rohwert wird abgebrochen. Anders als ein unbedingtes API-Update überschreibt das keine abweichende Autoload-Einstellung.
+- Danach werden Einzeloptions-, `alloptions`- und `notoptions`-Cache invalidiert. Plugin-spezifische Hooks werden durch das direkte UPDATE nicht ausgeführt.
+- Undo stellt den ursprünglichen Rohwert exakt wieder her; alte 0.1-Protokolle ohne erwarteten Nachher-Wert werden aus Sicherheitsgründen abgelehnt.
+- Änderung, Undo-Protokoll und Journal sind keine gemeinsame Datenbanktransaktion. Bei Schreibfehlern oder gleichzeitigen Administratoraktionen kann die letzte Undo-Historie fehlen/überschrieben werden. Ein zwischenzeitlich identisch zurückgesetzter Rohwert wird durch Compare-and-swap nicht erkannt.
+- Die eigene Historie und das Journal werden mit Autoload aus gespeichert und beim Deinstallieren entfernt. Fremde Optionen bleiben erhalten.
 
-## Copilot: Priorisierte Entwicklungsaufgaben
+## SQL-Export
 
-1. **Vor Produktion:** SQL-Export auf Testinstallation mit Sonderzeichen, Binärdaten, sehr großen Optionswerten und Import in eine Testdatenbank prüfen. Der jetzige Export ist eine einfache zeilenbasierte Implementierung und kein Ersatz für `mysqldump` oder ein professionelles Backup-Plugin. SQL-Escaping/Zeichensatz besonders gründlich prüfen.
-2. **Änderungen robuster machen:** `wp_set_option_autoload()`-Rückgabeverhalten bei unverändertem Wert untersuchen; History nur bei nachweislich erfolgreicher Änderung schreiben. Undo gegen konkurrierende Änderungen und Objekt-Cache testen; lieber API-konform arbeiten und keine fremden Updates überschreiben.
-3. **Ein-/Ausschalten vervollständigen:** Alle Optionen mit `on/off`-Filter anzeigen, dabei nicht automatisch geladene Einträge separat abrufen. Geschützte WordPress-Kernoptionen und Plugin-eigene Optionen strikt ausschließen.
-4. **Paginierung serverseitig:** Die aktuelle Version lädt alle Autoload-Metadaten für Suche/Sortierung; bei riesigen Tabellen auf `COUNT(*)`, `SUM(OCTET_LENGTH(...))`, `LIMIT` und `OFFSET` bzw. Keyset-Paginierung umstellen.
-5. **Sichere Batch-Funktion:** Mehrfachauswahl nur mit Vorschau, Nonce, Bestätigung und atomarem Änderungsjournal; keine automatische Löschung.
-6. **Heuristik verbessern:** Aktive Plugins, installierte Plugins und Themes aus WordPress-APIs einlesen; Präfix-Zuordnungen als unsicher markieren. Nicht mehr verwendete Plugin-Daten niemals automatisch löschen.
-7. **Testabdeckung:** WordPress-Core-Optionen, WooCommerce, Multisite (zunächst nicht unterstützt), persistenter Objekt-Cache, Transients, Cron, PHP 7.4–8.4, WP 6.4+, große Tabellen, ungewöhnliche Tabellenpräfixe, CSRF und Rollenrechte.
-8. **UX:** Größenformat in Byte/KiB/MiB, Gruppensummen, CSV-Metadatenexport ohne Optionswerte, Filter nach Status und Gruppen, mehrsprachige Strings mit WordPress-i18n.
+Der Download enthält möglicherweise Passwörter, Tokens und API-Schlüssel: sicher aufbewahren, nicht ins Git-Repository legen oder öffentlich weitergeben. Kein dauerhafter Export im Webroot.
 
-## Sicherheit und Betriebsregeln
+Hex-Literale vermeiden SQL-Modus-abhängiges String-Escaping und bewahren beliebige Bytes. Die Abfrage nutzt schlüsselbasierte 200-Zeilen-Blöcke. Ein Import aktualisiert/ergänzt vorhandene Zeilen, entfernt aber keine zusätzlichen Zeilen. Nur in eine passende Tabelle mit kompatiblem Schema importieren. Kein transaktionaler Snapshot: parallele Änderungen sind möglich. **Kein Ersatz für ein vollständiges Backup.** Wiederherstellung mit echten Sonderzeichen/Binärdaten und großen Werten ist vor Produktion noch separat zu prüfen.
 
-- Analyse ist **read-only**; beim Aufruf der Admin-Seite dürfen keine Änderungen erfolgen.
-- Keine vollständigen Optionswerte im HTML, in Logs oder in Fehlermeldungen ausgeben.
-- Export nie dauerhaft unter `uploads/` oder im Webroot ablegen.
-- Der SQL-Export ist **nur eine zusätzliche Sicherung der Optionstabelle**, kein vollständiges Website-Backup.
-- Eine Option kann auch bei deaktiviertem Autoload weiterhin gebraucht werden. Falsche Autoload-Einstellungen können zusätzliche Datenbankabfragen und verzögerte Fehler verursachen.
-- Keine pauschalen Löschaktionen und keine automatisierte Entscheidung anhand von Präfixen.
-- Uninstall darf keine Kundendaten löschen.
+## Tests
 
-## Copilot-Startprompt
+Ohne WordPress ausführbar:
 
-> Lies die README.md und den bestehenden Plugin-Code vollständig. Überprüfe zuerst Sicherheits- und Datenintegritätsrisiken, insbesondere SQL-Export, Autoload-API, Cache-Invalidierung, Undo und Berechtigungen. Implementiere danach das gezielte Ein- und Ausschalten mit Filter für alle Optionen. Halte Änderungen klein und nachvollziehbar. Verändere oder lösche niemals fremde WordPress-Optionen automatisch. Erstelle zu jeder Funktion eine kurze Testanleitung für eine lokale WordPress-Installation.
+```sh
+php tests/smoke.php
+find . -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
+```
 
-## Lizenz
+Die Smoke-Tests verwenden minimale WordPress-Stubs. Sie prüfen Core-Zuordnung, Tabellenpräfix, unbekannte `wp_`-Namen, Pluginstatus, Theme-Zuordnung, HTML-Escaping, Summen, kombinierte Filter und Metadatensuche. Zusätzliche Tests mit einer In-Memory-Datenbankattrappe prüfen Änderungen, exaktes Undo, Konfliktabbruch, Cache-Invalidierung, Core-/Protokollschutz sowie Berechtigungs- und Nonce-Prüfung. Sie ersetzen keinen Integrationstest.
+
+### Manuelle lokale Abnahme
+
+1. Plugin aktivieren und Werkzeug öffnen. Mit der Datenbank vergleichen: `yes`, `on`, `auto-on`, `auto` zählen standardmäßig als Autoload (WordPress-API berücksichtigt Filter).
+2. Nach einem Pluginnamen suchen, Vorschläge auswählen, Anbieter exakt filtern. Auch Treffer jenseits der ersten Seite prüfen.
+3. Core-/Theme-/Unbekanntfilter, Status, Autoload aus/alle, Mindestgröße und Reset kombinieren; Seitennavigation muss Filter erhalten.
+4. An einer eigens angelegten **entbehrlichen Testoption** Autoload aus und wieder an schalten. Rohwert in der DB und Cacheverhalten prüfen. Keine fremden Produktionsoptionen als Test verwenden.
+5. Letzte Änderung rückgängig machen; ursprünglichen Rohwert prüfen. Vor Undo den Autoload-Wert manuell anders setzen: Undo muss abbrechen.
+6. Gleiches Formular in zwei Tabs öffnen: Nach erster Änderung muss die zweite veraltete Anfrage scheitern. Core-Optionen und eigene Protokolle dürfen auch per manipuliertem POST nicht änderbar sein.
+7. Ohne Berechtigung bzw. mit ungültiger Nonce müssen Export/Änderung/Undo abgewiesen werden.
+8. Mit persistentem Objekt-Cache, Child-Theme und MU-Plugin wiederholen. Zeitversetzte Funktionen testen.
+9. Export nur in eine separate Testdatenbank importieren; Optionswerte bytegenau vergleichen. Nicht ins Repository aufnehmen.
+
+## Weitere Ausbaustufen
+
+- WordPress-/MySQL-Integrationstests einschließlich Cache und echter Export-Wiederherstellung.
+- Umfangreichere gepflegte Core- und Pluginregeln, Theme-spezifische Regeln und eigene Zuordnungsoberfläche.
+- Serverseitige Paginierung und begrenzter AJAX-Suchindex: aktuell werden alle Metadaten geladen und Vorschläge im HTML ausgegeben; sehr große Optionstabellen können langsam werden.
+- Atomare Protokollierung und zuverlässige Mehrbenutzer-Historie, optional Undo je Eintrag mit Konfliktprüfung.
+- CSV-Metadatenexport ohne Werte, vollständige WordPress-i18n und erweiterte Barrierefreiheit.
+- Keine Batch-Löschung oder automatische Optimierung allein aufgrund einer Heuristik.
+
+## Dateien
+
+- `suchis-autoload-inspector.php`: Bootstrap und Pluginmetadaten
+- `includes/class-sai-admin.php`: Berechtigungen, Datenzugriff, Änderungen, Journal, Export
+- `includes/class-sai-catalog.php`: Herkunftsregeln und installierte Komponenten
+- `includes/class-sai-view.php`: Metadatensuche, Filter, Summen, Tabellenansicht
+- `tests/`: eigenständig ausführbare Metadaten-/UI-Tests
+- `uninstall.php`: entfernt ausschließlich eigene Protokolle
 
 GPL-2.0-or-later. Autor: Christian Suchanek.
