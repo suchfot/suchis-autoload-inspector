@@ -98,4 +98,10 @@ check($wpdb->queries === $before,'Capability guard');
 $GLOBALS['allowed']=true; $GLOBALS['nonce_ok']=false;
 try { $admin->change(); } catch (RuntimeException $e) {}
 check($wpdb->queries === $before,'Nonce guard');
+function plugin_basename($file) { return 'suchis-autoload-inspector/'.basename($file); }
+function add_filter($hook,$callback) { $GLOBALS['test_filters'][$hook]=$callback; }
+require dirname(__DIR__).'/suchis-autoload-inspector.php';
+$filter=$GLOBALS['test_filters']['plugin_action_links_suchis-autoload-inspector/suchis-autoload-inspector.php'];
+$links=$filter(['deactivate'=>'Existing action']);
+check($links['deactivate'] === 'Existing action' && strpos(implode(' ', $links), 'suchis-autoload-inspector-wordpress-optionen/') !== false, 'Documentation action preserves existing links');
 echo "Alle Metadaten-/UI-/Änderungslogik-Tests erfolgreich.\n";

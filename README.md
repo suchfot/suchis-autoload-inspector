@@ -4,6 +4,12 @@ Lokales WordPress-Adminwerkzeug unter **Werkzeuge → Autoload Inspector**.
 **Version 0.2.0 – Testversion, vor Produktiveinsatz auf Staging prüfen.**
 Voraussetzungen: WordPress 6.6+, PHP 7.4+, `manage_options`. Multisite ist noch nicht vollständig unterstützt.
 
+## Öffentliche Anleitung
+
+[Suchis Autoload Inspector – WordPress-Optionen verstehen und gezielt prüfen](https://www.derperformer.com/wordperessplugin/suchis-autoload-inspector-wordpress-optionen/)
+
+Der Beitrag erklärt Autoload, Funktionen, Herkunftsheuristiken und Sicherheitsgrenzen der Testversion. Die URL ist als `Plugin URI` hinterlegt (WordPress-Link „Plugin-Website aufrufen“); zusätzlich steht in der Pluginzeile der Link „Anleitung“. Ein öffentlicher Plugin-Download wurde damit nicht eingerichtet.
+
 ## Funktionen
 
 - Alle Options-Metadaten anzeigen; standardmäßig nur automatisch geladene Optionen.
